@@ -1,0 +1,215 @@
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	apiLabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
+	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/kloudlite/internal/constants"
+	t "k8s.io/autoscaler/cluster-autoscaler/cloudprovider/kloudlite/internal/types"
+	clientGoScheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type Client struct {
+	k8sCli client.Client
+}
+
+func jsonConvert(from any, to any) error {
+	b, err := json.Marshal(from)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(b, to)
+}
+
+func (k *Client) getNodePool(ctx context.Context, name string) (*t.NodePool, error) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": t.NodePoolGVK.GroupVersion().String(),
+			"kind":       t.NodePoolGVK.Kind,
+		},
+	}
+	err := k.k8sCli.Get(ctx, types.NamespacedName{Name: name, Namespace: ""}, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodepool t.NodePool
+	if err := jsonConvert(obj.Object, &nodepool); err != nil {
+		return nil, err
+	}
+
+	return &nodepool, nil
+}
+
+func (k *Client) UpdateNodepoolTargetSize(ctx context.Context, name string, targetSize int) error {
+	obj := unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": t.NodePoolGVK.GroupVersion().String(),
+			"kind":       t.NodePoolGVK.Kind,
+		},
+	}
+
+	if err := k.k8sCli.Get(ctx, types.NamespacedName{Name: name}, &obj); err != nil {
+		return err
+	}
+
+	obj.Object["spec"].(map[string]any)["targetCount"] = targetSize
+	return k.k8sCli.Update(ctx, &obj)
+}
+
+func (k *Client) listNodePools(ctx context.Context) ([]*t.NodePool, error) {
+	obj := &unstructured.UnstructuredList{
+		Object: map[string]any{
+			"apiVersion": t.NodePoolGVK.GroupVersion().String(),
+			"kind":       t.NodePoolGVK.Kind,
+		},
+	}
+
+	if err := k.k8sCli.List(ctx, obj); err != nil {
+		return nil, err
+	}
+
+	var nodepools []*t.NodePool
+	if err := jsonConvert(obj.Items, &nodepools); err != nil {
+		return nil, err
+	}
+	return nodepools, nil
+}
+
+func (k *Client) getNode(ctx context.Context, nodeName string) (*corev1.Node, error) {
+	var node corev1.Node
+	if err := k.k8sCli.Get(ctx, types.NamespacedName{Name: nodeName}, &node); err != nil {
+		return nil, err
+	}
+
+	return &node, nil
+}
+
+func (k *Client) ListNodes(ctx context.Context, poolName string) ([]corev1.Node, error) {
+	var nodesList corev1.NodeList
+	if err := k.k8sCli.List(ctx, &nodesList, &client.ListOptions{
+		LabelSelector: apiLabels.SelectorFromValidatedSet(map[string]string{
+			constants.NodepoolNameLabel: poolName,
+		}),
+	}); err != nil {
+		return nil, err
+	}
+
+	return nodesList.Items, nil
+}
+
+func (k *Client) GetNodePoolWithName(ctx context.Context, name string) (*t.NodePool, error) {
+	return k.getNodePool(ctx, name)
+}
+
+func (k *Client) ListNodePools(ctx context.Context) ([]*t.NodePool, error) {
+	return k.listNodePools(ctx)
+}
+
+func (k *Client) GetNode(ctx context.Context, name string) (*corev1.Node, error) {
+	return k.getNode(ctx, name)
+}
+
+func (k *Client) DeleteNode(ctx context.Context, name string) error {
+	node, err := k.getNode(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	return k.k8sCli.Delete(ctx, node)
+}
+
+func (k *Client) DeleteNodes(ctx context.Context, nodes []*corev1.Node) error {
+	for i := range nodes {
+		return k.DeleteNode(ctx, nodes[i].Name)
+	}
+
+	return nil
+}
+
+func (k *Client) InstanceStatusFromNode(node *corev1.Node) *cloudprovider.InstanceStatus {
+	return toInstanceStatus(node)
+}
+
+func toInstanceState(node *corev1.Node) (cloudprovider.InstanceState, error) {
+	if node.GetDeletionTimestamp() != nil {
+		return cloudprovider.InstanceDeleting, nil
+	}
+
+	for i := range node.Status.Conditions {
+		if node.Status.Conditions[i].Type == corev1.NodeReady {
+			return cloudprovider.InstanceRunning, nil
+		}
+	}
+
+	return cloudprovider.InstanceState(-1), fmt.Errorf("unknown instance state")
+}
+
+// referenced from hetzner's cluster-autoscaler/cloudprovider/hetzner/hetzner_node_group.go:292
+func toInstanceStatus(node *corev1.Node) *cloudprovider.InstanceStatus {
+	st := &cloudprovider.InstanceStatus{}
+
+	state, err := toInstanceState(node)
+	if err != nil {
+		st.ErrorInfo = &cloudprovider.InstanceErrorInfo{
+			ErrorClass:   cloudprovider.OtherErrorClass,
+			ErrorCode:    "no-code-kloudlite",
+			ErrorMessage: err.Error(),
+		}
+		return st
+	}
+
+	st.State = state
+
+	return st
+}
+
+func NewClientFromFlags() (*Client, error) {
+	var restCfg *rest.Config = nil
+
+	flag.VisitAll(func(f *flag.Flag) {
+		if f.Name == "kubeconfig" {
+			var err error
+			restCfg, err = clientcmd.BuildConfigFromFlags("", f.Value.String())
+			if err != nil {
+				klog.Fatalf("Failed to parse kubeconfig file: %v", err)
+			}
+		}
+	})
+
+	if restCfg == nil {
+		klog.Fatalf("unable to build *rest.Config, exiting")
+	}
+
+	return NewClient(restCfg)
+}
+
+func NewClient(config *rest.Config) (*Client, error) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientGoScheme.AddToScheme(scheme))
+
+	c, err := client.New(config, client.Options{
+		Scheme: scheme,
+		WarningHandler: client.WarningHandlerOptions{
+			SuppressWarnings: true,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{k8sCli: c}, nil
+}
