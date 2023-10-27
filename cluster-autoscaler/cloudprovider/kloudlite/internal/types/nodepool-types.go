@@ -25,6 +25,12 @@ var NodePoolGVK = schema.GroupVersionKind{
 	Kind:    "NodePool",
 }
 
+var NodeGVK = schema.GroupVersionKind{
+	Group:   "clusters.kloudlite.io",
+	Version: "v1",
+	Kind:    "Node",
+}
+
 func (np *NodePool) EnsureGVK() {
 	if np != nil {
 		np.SetGroupVersionKind(NodePoolGVK)
