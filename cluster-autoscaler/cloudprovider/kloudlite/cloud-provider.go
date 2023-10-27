@@ -9,6 +9,7 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/kloudlite/internal/constants"
 	"k8s.io/autoscaler/cluster-autoscaler/config"
 	"k8s.io/autoscaler/cluster-autoscaler/utils/errors"
+	"k8s.io/autoscaler/cluster-autoscaler/utils/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -87,7 +88,7 @@ func (k *kloudliteCloudProvider) GetAvailableGPUTypes() map[string]struct{} {
 }
 
 func (k *kloudliteCloudProvider) GetNodeGpuConfig(node *apiv1.Node) *cloudprovider.GpuConfig {
-	return nil
+	return gpu.GetNodeGPUFromCloudProvider(k, node)
 }
 
 func (k *kloudliteCloudProvider) Cleanup() error {
@@ -123,7 +124,7 @@ func (k *kloudliteCloudProvider) Refresh() error {
 }
 
 func BuildKloudlite(opts config.AutoscalingOptions, do cloudprovider.NodeGroupDiscoveryOptions, rl *cloudprovider.ResourceLimiter) cloudprovider.CloudProvider {
-	c, err := client.NewClientFromFlags()
+	c, err := client.NewClientFromKubeconfigFile(opts.KubeConfigPath)
 	if err != nil {
 		klog.Fatalf("Failed to create client: %v", err)
 	}

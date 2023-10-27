@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type Client struct {
@@ -66,6 +66,13 @@ func (k *Client) UpdateNodepoolTargetSize(ctx context.Context, name string, targ
 		return err
 	}
 
+	// INFO: this is a hack to make sure the nodepool controller will not reconcile this nodepool in the next 5 seconds
+	metadata := obj.Object["metadata"].(map[string]any)
+	if metadata["annotations"] == nil {
+		metadata["annotations"] = make(map[string]any)
+	}
+	annotations := metadata["annotations"].(map[string]any)
+	annotations[constants.AnnotationReconcileScheduledAfter] = time.Now().Add(5 * time.Second).Format(time.RFC3339)
 	obj.Object["spec"].(map[string]any)["targetCount"] = targetSize
 	return k.k8sCli.Update(ctx, &obj)
 }
@@ -124,12 +131,22 @@ func (k *Client) GetNode(ctx context.Context, name string) (*corev1.Node, error)
 }
 
 func (k *Client) DeleteNode(ctx context.Context, name string) error {
-	node, err := k.getNode(ctx, name)
-	if err != nil {
+	customNode := unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": t.NodeGVK.GroupVersion().String(),
+			"kind":       t.NodeGVK.Kind,
+			"metadata": map[string]any{
+				"name": name,
+			},
+		},
+	}
+
+	if err := k.k8sCli.Delete(ctx, &customNode); err != nil {
 		return err
 	}
 
-	return k.k8sCli.Delete(ctx, node)
+	klog.Infof("Node %s, has been marked for deletion, nodepool controller should take it forward, now", name)
+	return nil
 }
 
 func (k *Client) DeleteNodes(ctx context.Context, nodes []*corev1.Node) error {
@@ -177,21 +194,11 @@ func toInstanceStatus(node *corev1.Node) *cloudprovider.InstanceStatus {
 	return st
 }
 
-func NewClientFromFlags() (*Client, error) {
-	var restCfg *rest.Config = nil
-
-	flag.VisitAll(func(f *flag.Flag) {
-		if f.Name == "kubeconfig" {
-			var err error
-			restCfg, err = clientcmd.BuildConfigFromFlags("", f.Value.String())
-			if err != nil {
-				klog.Fatalf("Failed to parse kubeconfig file: %v", err)
-			}
-		}
-	})
-
-	if restCfg == nil {
-		klog.Fatalf("unable to build *rest.Config, exiting")
+func NewClientFromKubeconfigFile(kubeconfigPath string) (*Client, error) {
+	klog.V(1).Infof("Using kubeconfig file: %s", kubeconfigPath)
+	restCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		klog.Fatalf("Failed to parse kubeconfig file: %v", err)
 	}
 
 	return NewClient(restCfg)

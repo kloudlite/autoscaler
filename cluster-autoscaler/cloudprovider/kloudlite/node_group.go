@@ -12,6 +12,7 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/config"
 	"k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
+	"math"
 )
 
 // NodeGroup implements cloudprovider.NodeGroup interface.
@@ -51,8 +52,13 @@ func (n *NodeGroup) IncreaseSize(delta int) error {
 }
 
 func (n *NodeGroup) DeleteNodes(nodes []*corev1.Node) error {
-	return n.DecreaseTargetSize(len(nodes))
-	//return n.k8sClient.DeleteNodes(context.TODO(), nodes)
+	if err := n.k8sClient.UpdateNodepoolTargetSize(context.TODO(), n.nodepoolName, int(math.Max(float64(n.targetSize-len(nodes)), float64(n.minSize)))); err != nil {
+		return err
+	}
+	if err := n.k8sClient.DeleteNodes(context.TODO(), nodes); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *NodeGroup) DecreaseTargetSize(delta int) error {
