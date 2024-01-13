@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiLabels "k8s.io/apimachinery/pkg/labels"
@@ -18,7 +20,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Client struct {
@@ -66,13 +67,13 @@ func (k *Client) UpdateNodepoolTargetSize(ctx context.Context, name string, targ
 		return err
 	}
 
-	// INFO: this is a hack to make sure the nodepool controller will not reconcile this nodepool in the next 5 seconds
+	// INFO: this is a hack to make sure the nodepool controller will not reconcile this nodepool in the next 10 seconds
 	metadata := obj.Object["metadata"].(map[string]any)
 	if metadata["annotations"] == nil {
 		metadata["annotations"] = make(map[string]any)
 	}
 	annotations := metadata["annotations"].(map[string]any)
-	annotations[constants.AnnotationReconcileScheduledAfter] = time.Now().Add(5 * time.Second).Format(time.RFC3339)
+	annotations[constants.AnnotationReconcileScheduledAfter] = time.Now().Add(10 * time.Second).Format(time.RFC3339)
 	obj.Object["spec"].(map[string]any)["targetCount"] = targetSize
 	return k.k8sCli.Update(ctx, &obj)
 }
@@ -151,7 +152,8 @@ func (k *Client) DeleteNode(ctx context.Context, name string) error {
 
 func (k *Client) DeleteNodes(ctx context.Context, nodes []*corev1.Node) error {
 	for i := range nodes {
-		return k.DeleteNode(ctx, nodes[i].Name)
+		node := nodes[i]
+		return k.DeleteNode(ctx, node.Name)
 	}
 
 	return nil

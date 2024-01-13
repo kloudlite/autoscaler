@@ -57,6 +57,8 @@ ifdef BASEIMAGE
 		-t ${IMAGE}-$*:${TAG} \
 		-f Dockerfile.$* .
 else
+	echo ${PATH}
+	which docker
 	docker build --pull \
 		-t ${IMAGE}-$*:${TAG} \
 		-f Dockerfile.$* .
