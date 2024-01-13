@@ -3,6 +3,8 @@ package kloudlite
 import (
 	"context"
 	"fmt"
+	"math"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +14,6 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/config"
 	"k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
-	"math"
 )
 
 // NodeGroup implements cloudprovider.NodeGroup interface.
@@ -62,6 +63,11 @@ func (n *NodeGroup) DeleteNodes(nodes []*corev1.Node) error {
 }
 
 func (n *NodeGroup) DecreaseTargetSize(delta int) error {
+	if n.targetSize-delta >= n.minSize {
+		msg := fmt.Sprintf("new target size %d will be less than min size %d, aborting operation", n.targetSize-delta, n.minSize)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
 	if err := n.k8sClient.UpdateNodepoolTargetSize(context.TODO(), n.nodepoolName, n.targetSize-delta); err != nil {
 		return err
 	}
@@ -135,7 +141,7 @@ func (n *NodeGroup) Exist() bool {
 }
 
 func (n *NodeGroup) Create() (cloudprovider.NodeGroup, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
