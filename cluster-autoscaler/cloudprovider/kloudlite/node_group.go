@@ -3,7 +3,6 @@ package kloudlite
 import (
 	"context"
 	"fmt"
-	"math"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -41,21 +40,20 @@ func (n *NodeGroup) MinSize() int {
 }
 
 func (n *NodeGroup) TargetSize() (int, error) {
-	return n.targetSize, nil
+	// return n.targetSize, nil
+	return n.k8sClient.TargetSize(n.nodepoolName)
 }
 
 func (n *NodeGroup) IncreaseSize(delta int) error {
-	if err := n.k8sClient.UpdateNodepoolTargetSize(context.TODO(), n.nodepoolName, n.targetSize+delta); err != nil {
-		return err
+	for i := 0; i < delta; i++ {
+		if err := n.k8sClient.CreateNode(context.TODO(), n.nodepoolName); err != nil {
+			return err
+		}
 	}
-	n.targetSize += delta
 	return nil
 }
 
 func (n *NodeGroup) DeleteNodes(nodes []*corev1.Node) error {
-	if err := n.k8sClient.UpdateNodepoolTargetSize(context.TODO(), n.nodepoolName, int(math.Max(float64(n.targetSize-len(nodes)), float64(n.minSize)))); err != nil {
-		return err
-	}
 	if err := n.k8sClient.DeleteNodes(context.TODO(), nodes); err != nil {
 		return err
 	}
@@ -63,15 +61,6 @@ func (n *NodeGroup) DeleteNodes(nodes []*corev1.Node) error {
 }
 
 func (n *NodeGroup) DecreaseTargetSize(delta int) error {
-	if n.targetSize-delta >= n.minSize {
-		msg := fmt.Sprintf("new target size %d will be less than min size %d, aborting operation", n.targetSize-delta, n.minSize)
-		klog.Errorf(msg)
-		return fmt.Errorf(msg)
-	}
-	if err := n.k8sClient.UpdateNodepoolTargetSize(context.TODO(), n.nodepoolName, n.targetSize-delta); err != nil {
-		return err
-	}
-	n.targetSize -= delta
 	return nil
 }
 
@@ -115,6 +104,13 @@ func (n *NodeGroup) TemplateNodeInfo() (*schedulerframework.NodeInfo, error) {
 			Name:   "template-node",
 			Labels: map[string]string{constants.NodepoolNameLabel: n.nodepoolName},
 		},
+		Spec: corev1.NodeSpec{
+			PodCIDR: "10.42.33.0/24",
+			PodCIDRs: []string{
+				"10.42.33.0/24",
+			},
+			Unschedulable: false,
+		},
 		Status: corev1.NodeStatus{
 			Capacity: corev1.ResourceList{
 				corev1.ResourcePods:    *resource.NewQuantity(110, resource.DecimalSI),
@@ -128,7 +124,10 @@ func (n *NodeGroup) TemplateNodeInfo() (*schedulerframework.NodeInfo, error) {
 				corev1.ResourceMemory:  *resource.NewQuantity(2*1024*1024*1024, resource.DecimalSI),
 				corev1.ResourceStorage: *resource.NewQuantity(30*1024*1024*1024, resource.DecimalSI),
 			},
-			Conditions: cloudprovider.BuildReadyConditions(),
+			Phase:           corev1.NodeRunning,
+			Conditions:      cloudprovider.BuildReadyConditions(),
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{},
+			NodeInfo:        corev1.NodeSystemInfo{},
 		},
 	}
 
@@ -141,7 +140,6 @@ func (n *NodeGroup) Exist() bool {
 }
 
 func (n *NodeGroup) Create() (cloudprovider.NodeGroup, error) {
-	// TODO implement me
 	panic("implement me")
 }
 

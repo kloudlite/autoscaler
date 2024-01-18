@@ -708,8 +708,11 @@ func defaultLeaderElectionConfiguration() componentbaseconfig.LeaderElectionConf
 }
 
 const (
-	defaultLeaseDuration = 15 * time.Second
-	defaultRenewDeadline = 10 * time.Second
+	//defaultLeaseDuration = 15 * time.Second
+	//defaultRenewDeadline = 10 * time.Second
+
+	defaultLeaseDuration = 3600 * time.Second
+	defaultRenewDeadline = 3599 * time.Second
 	defaultRetryPeriod   = 2 * time.Second
 )
 

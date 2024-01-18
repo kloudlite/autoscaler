@@ -119,6 +119,32 @@ func (k *Client) ListNodes(ctx context.Context, poolName string) ([]corev1.Node,
 	return nodesList.Items, nil
 }
 
+func (k *Client) TargetSize(nodepoolName string) (int, error) {
+	list := unstructured.UnstructuredList{
+		Object: map[string]any{
+			"apiVersion": "clusters.kloudlite.io/v1",
+			"kind":       "Node",
+		},
+		Items: nil,
+	}
+	if err := k.k8sCli.List(context.TODO(), &list, &client.ListOptions{
+		LabelSelector: apiLabels.SelectorFromValidatedSet(map[string]string{
+			constants.NodepoolNameLabel: nodepoolName,
+		}),
+	}); err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for i := range list.Items {
+		if list.Items[i].GetDeletionTimestamp() == nil {
+			count += 1
+		}
+	}
+
+	return count, nil
+}
+
 func (k *Client) GetNodePoolWithName(ctx context.Context, name string) (*t.NodePool, error) {
 	return k.getNodePool(ctx, name)
 }
@@ -148,6 +174,23 @@ func (k *Client) DeleteNode(ctx context.Context, name string) error {
 
 	klog.Infof("Node %s, has been marked for deletion, nodepool controller should take it forward, now", name)
 	return nil
+}
+
+func (k *Client) CreateNode(ctx context.Context, nodepoolName string) error {
+	obj := map[string]any{
+		"apiVersion": "clusters.kloudlite.io/v1",
+		"kind":       "Node",
+		"metadata": map[string]any{
+			"generateName": fmt.Sprintf("%s-node-", nodepoolName),
+			"finalizers": []string{
+				"kloudlite.io/nodepool-node-finalizer",
+			},
+		},
+		"spec": map[string]any{
+			"nodepoolName": nodepoolName,
+		},
+	}
+	return k.k8sCli.Create(ctx, &unstructured.Unstructured{Object: obj})
 }
 
 func (k *Client) DeleteNodes(ctx context.Context, nodes []*corev1.Node) error {
