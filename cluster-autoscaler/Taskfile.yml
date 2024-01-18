@@ -1,0 +1,16 @@
+version: 3
+
+tasks:
+  build:
+    cmds:
+      - make build BUILD_TAGS=kloudlite
+
+  run:
+    env:
+      GOARCH: amd64
+    preconditions:
+      - sh: '[[ ! -z "$KUBECONFIG" ]]'
+        msg: 'env var KUBECONFIG must be set'
+    cmds:
+      # - task: build
+      - ./cluster-autoscaler-$GOARCH --kubeconfig $KUBECONFIG --cloud-provider=kloudlite --logtostderr=true --stderrthreshold=info --v=4
