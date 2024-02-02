@@ -69,7 +69,11 @@ func (n *NodeGroup) Id() string {
 }
 
 func (n *NodeGroup) Debug() string {
-	return fmt.Sprintf("[DEBUG]: nodepoolName: %s, minSize: %d, maxSize: %d, targetSize: %d", n.nodepoolName, n.minSize, n.maxSize, n.targetSize)
+	tsize, err := n.TargetSize()
+	if err != nil {
+		klog.ErrorS(err, "got error while calling TargetSize()")
+	}
+	return fmt.Sprintf("[DEBUG]: nodepoolName: %s, minSize: %d, maxSize: %d, targetSize: %d", n.nodepoolName, n.MinSize(), n.MaxSize(), tsize)
 }
 
 func (n *NodeGroup) Nodes() ([]cloudprovider.Instance, error) {

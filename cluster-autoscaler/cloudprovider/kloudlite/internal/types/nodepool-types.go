@@ -6,9 +6,8 @@ import (
 )
 
 type NodePoolSpec struct {
-	MaxCount    int `json:"maxCount"`
-	MinCount    int `json:"minCount"`
-	TargetCount int `json:"targetCount"`
+	MaxCount int `json:"maxCount"`
+	MinCount int `json:"minCount"`
 }
 
 // NodePool is the Schema for the nodepools API

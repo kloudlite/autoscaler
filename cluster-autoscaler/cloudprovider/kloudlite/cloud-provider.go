@@ -101,18 +101,20 @@ func (k *kloudliteCloudProvider) Refresh() error {
 		return err
 	}
 
-	nodeGroups := make([]cloudprovider.NodeGroup, len(pools))
+	nodeGroups := make([]cloudprovider.NodeGroup, 0, len(pools))
 
 	for i := range pools {
-		nodeGroups[i] = &NodeGroup{
+		if pools[i].GetDeletionTimestamp() != nil {
+			continue
+		}
+		nodeGroups = append(nodeGroups, &NodeGroup{
 			nodepoolName: pools[i].Name,
 			k8sClient:    k.KloudliteCli,
 			memoryInGB:   4,
 			vcpuCount:    2,
 			minSize:      pools[i].Spec.MinCount,
 			maxSize:      pools[i].Spec.MaxCount,
-			targetSize:   pools[i].Spec.TargetCount,
-		}
+		})
 	}
 
 	for i := range nodeGroups {
@@ -123,8 +125,8 @@ func (k *kloudliteCloudProvider) Refresh() error {
 	return nil
 }
 
-func BuildKloudlite(opts config.AutoscalingOptions, do cloudprovider.NodeGroupDiscoveryOptions, rl *cloudprovider.ResourceLimiter) cloudprovider.CloudProvider {
-	c, err := client.NewClientFromKubeconfigFile(opts.KubeConfigPath)
+func BuildKloudlite(opts config.AutoscalingOptions, _ cloudprovider.NodeGroupDiscoveryOptions, rl *cloudprovider.ResourceLimiter) cloudprovider.CloudProvider {
+	c, err := client.NewClientFromKubeconfigFile(opts.KubeClientOpts.KubeConfigPath)
 	if err != nil {
 		klog.Fatalf("Failed to create client: %v", err)
 	}

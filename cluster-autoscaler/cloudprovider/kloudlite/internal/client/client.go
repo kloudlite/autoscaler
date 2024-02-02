@@ -74,7 +74,6 @@ func (k *Client) UpdateNodepoolTargetSize(ctx context.Context, name string, targ
 	}
 	annotations := metadata["annotations"].(map[string]any)
 	annotations[constants.AnnotationReconcileScheduledAfter] = time.Now().Add(10 * time.Second).Format(time.RFC3339)
-	obj.Object["spec"].(map[string]any)["targetCount"] = targetSize
 	return k.k8sCli.Update(ctx, &obj)
 }
 
