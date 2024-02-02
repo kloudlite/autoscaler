@@ -17,8 +17,8 @@ tasks:
     preconditions:
       - sh: '[[ ! -z "{{.TAG}}" ]]'
         msg: 'var TAG must be set'
-    vars:
-      IMAGE: ghcr.io/kloudlite/cluster-autoscaler
+      - sh: '[[ ! -z "{{.IMAGE}}" ]]'
+        msg: 'var IMAGE must be set'
     cmds:
       - task: build
       - |+
