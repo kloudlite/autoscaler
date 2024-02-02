@@ -474,9 +474,6 @@ github.com/libopenstorage/openstorage/volume
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/matoous/go-nanoid/v2 v2.0.0
-## explicit; go 1.15
-github.com/matoous/go-nanoid/v2
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -1133,7 +1130,8 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.29.0-alpha.3
+# k8s.io/apiextensions-apiserver v0.28.3 => k8s.io/apiextensions-apiserver v0.29.0-alpha.3
+## explicit; go 1.21.3
 k8s.io/apiextensions-apiserver/pkg/features
 # k8s.io/apimachinery v0.29.0-alpha.3 => k8s.io/apimachinery v0.29.0-alpha.3
 ## explicit; go 1.21.3
@@ -2205,7 +2203,6 @@ sigs.k8s.io/cloud-provider-azure/pkg/azureclients
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/armclient
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/blobclient
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/containerserviceclient
-sigs.k8s.io/cloud-provider-azure/pkg/azureclients/containerserviceclient/mockcontainerserviceclient
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/deploymentclient
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/diskclient
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/diskclient/mockdiskclient
