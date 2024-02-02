@@ -1,24 +1,31 @@
 version: 3
 
+env:
+  BUILD_TAGS: kloudlite
+  LDFLAGS: "-s -w"
+
 tasks:
   build:
     cmds:
-      - make build BUILD_TAGS=kloudlite
-      # - upx ./cluster-autoscaler-amd64
+      - make build
+      - |+
+        if command -v upx 2>&1 > /dev/null; then
+          upx ./cluster-autoscaler-amd64
+        fi
 
   docker:build:
     preconditions:
       - sh: '[[ ! -z "{{.TAG}}" ]]'
         msg: 'var TAG must be set'
-    env:
-      GOARCH: amd64
     vars:
       IMAGE: ghcr.io/kloudlite/cluster-autoscaler
     cmds:
       - task: build
       - |+
-        make make-image BUILD_TAGS=kloudlite IMAGE="{{.IMAGE}}" TAG={{.TAG}}
-        docker push {{.IMAGE}}-$GOARCH:{{.TAG}}
+        GOARCH=$(go env GOARCH)
+        make make-image IMAGE="{{.IMAGE}}" TAG={{.TAG}}
+        docker tag {{.IMAGE}}-$GOARCH:{{.TAG}} {{.IMAGE}}:{{.TAG}}
+        docker push {{.IMAGE}}:{{.TAG}}
 
   run:
     env:
