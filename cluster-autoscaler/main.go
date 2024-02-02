@@ -708,12 +708,14 @@ func defaultLeaderElectionConfiguration() componentbaseconfig.LeaderElectionConf
 }
 
 const (
-	//defaultLeaseDuration = 15 * time.Second
-	//defaultRenewDeadline = 10 * time.Second
+	defaultLeaseDuration = 15 * time.Second
+	defaultRenewDeadline = 10 * time.Second
 
-	defaultLeaseDuration = 3600 * time.Second
-	defaultRenewDeadline = 3599 * time.Second
-	defaultRetryPeriod   = 2 * time.Second
+	// for dev debugging purposes, uncomment the following
+	// defaultLeaseDuration = 3600 * time.Second
+	// defaultRenewDeadline = 3599 * time.Second
+
+	defaultRetryPeriod = 2 * time.Second
 )
 
 func parseMinMaxFlag(flag string) (int64, int64, error) {

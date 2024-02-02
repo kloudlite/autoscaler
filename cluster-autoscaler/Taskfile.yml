@@ -4,18 +4,21 @@ tasks:
   build:
     cmds:
       - make build BUILD_TAGS=kloudlite
+      # - upx ./cluster-autoscaler-amd64
 
   docker:build:
     preconditions:
       - sh: '[[ ! -z "{{.TAG}}" ]]'
         msg: 'var TAG must be set'
+    env:
+      GOARCH: amd64
+    vars:
+      IMAGE: ghcr.io/kloudlite/cluster-autoscaler
     cmds:
+      - task: build
       - |+
-        mkdir -p /tmp/bin
-        ln -sf $(which podman) /tmp/bin/docker
-        export PATH="/tmp/bin:$PATH"
-        # make make-image BUILD_TAGS=kloudlite IMAGE="ghcr.io/kloudlite/cluster-autoscaler" TAG=kloudlite-
-        make make-image BUILD_TAGS=kloudlite IMAGE="ghcr.io/kloudlite/cluster-autoscaler" TAG={{.TAG}}
+        make make-image BUILD_TAGS=kloudlite IMAGE="{{.IMAGE}}" TAG={{.TAG}}
+        docker push {{.IMAGE}}-$GOARCH:{{.TAG}}
 
   run:
     env:
