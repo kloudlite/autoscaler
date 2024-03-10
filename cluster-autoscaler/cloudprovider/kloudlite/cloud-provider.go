@@ -47,6 +47,10 @@ func (k *kloudliteCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovid
 		return nil, err
 	}
 
+	if nodepool == nil {
+		return nil, nil
+	}
+
 	for i := range k.nodeGroups {
 		if k.nodeGroups[i].Id() == nodepool.Name {
 			return k.nodeGroups[i], nil
@@ -61,17 +65,17 @@ func (k *kloudliteCloudProvider) HasInstance(node *apiv1.Node) (bool, error) {
 }
 
 func (k *kloudliteCloudProvider) Pricing() (cloudprovider.PricingModel, errors.AutoscalerError) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (k *kloudliteCloudProvider) GetAvailableMachineTypes() ([]string, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (k *kloudliteCloudProvider) NewNodeGroup(machineType string, labels map[string]string, systemLabels map[string]string, taints []apiv1.Taint, extraResources map[string]resource.Quantity) (cloudprovider.NodeGroup, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
