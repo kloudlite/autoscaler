@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Client struct {
@@ -106,16 +109,31 @@ func (k *Client) getNode(ctx context.Context, nodeName string) (*corev1.Node, er
 }
 
 func (k *Client) ListNodes(ctx context.Context, poolName string) ([]corev1.Node, error) {
-	var nodesList corev1.NodeList
-	if err := k.k8sCli.List(ctx, &nodesList, &client.ListOptions{
-		LabelSelector: apiLabels.SelectorFromValidatedSet(map[string]string{
-			constants.NodepoolNameLabel: poolName,
-		}),
-	}); err != nil {
-		return nil, err
+	nodesList := unstructured.UnstructuredList{
+		Object: map[string]any{
+			"apiVersion": "clusters.kloudlite.io/v1",
+			"kind":       "Node",
+		},
 	}
 
-	return nodesList.Items, nil
+	nodes := make([]corev1.Node, len(nodesList.Items))
+	for i := range nodesList.Items {
+		n, err := k.getNode(ctx, nodesList.Items[i].GetName())
+		if err != nil {
+			if !apiErrors.IsNotFound(err) {
+				return nil, err
+			}
+			n = &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      nodesList.Items[i].GetName(),
+					Namespace: nodesList.Items[i].GetNamespace(),
+				},
+			}
+		}
+		nodes[i] = *n
+	}
+
+	return nodes, nil
 }
 
 func (k *Client) TargetSize(nodepoolName string) (int, error) {
@@ -181,6 +199,9 @@ func (k *Client) CreateNode(ctx context.Context, nodepoolName string) error {
 		"kind":       "Node",
 		"metadata": map[string]any{
 			"generateName": fmt.Sprintf("%s-node-", nodepoolName),
+			"labels": map[string]string{
+				"kloudlite.io/nodepool.name": nodepoolName,
+			},
 			"finalizers": []string{
 				"kloudlite.io/nodepool-node-finalizer",
 			},
