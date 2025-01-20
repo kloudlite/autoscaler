@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -201,9 +202,6 @@ func (k *Client) CreateNode(ctx context.Context, nodepoolName string) error {
 			"generateName": fmt.Sprintf("%s-node-", nodepoolName),
 			"labels": map[string]string{
 				"kloudlite.io/nodepool.name": nodepoolName,
-			},
-			"finalizers": []string{
-				"kloudlite.io/nodepool-node-finalizer",
 			},
 		},
 		"spec": map[string]any{
